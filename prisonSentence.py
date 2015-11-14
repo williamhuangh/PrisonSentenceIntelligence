@@ -4,73 +4,92 @@ import datetime
 import decimal
 
 def addCurrentOffenses(currentOffensesReader, inmatesMap):
-	for row in currentOffensesReader:
-		if row[0] == 'DCNumber':
-			attributes = [row[2], row[4], row[6], row[7], row[8], row[9]]
-		else:
-			if 'CURRENT_OFFENSES' not in inmatesMap[row[0]]:
-				currentTime = datetime.datetime(int(row[2][6:10]), int(row[2][0:2]), int(row[2][3:5]))
-				inmatesMap[row[0]]['CURRENT_OFFENSES'] = [{attributes[0]: currentTime, attributes[1]: row[4], attributes[2]: row[6], attributes[3]: row[7], attributes[4]: row[8], attributes[5]: row[9]}]
-			else:
-				currentTime = datetime.datetime(int(row[2][6:10]), int(row[2][0:2]), int(row[2][3:5]))
-				inmatesMap[row[0]]['CURRENT_OFFENSES'].append({attributes[0]: currentTime, attributes[1]: row[4], attributes[2]: row[6], attributes[3]: row[7], attributes[4]: row[8], attributes[5]: row[9]})
+    for row in currentOffensesReader:
+        inmate_id = row[0]
+        offenseDate = row[2]
+        county = row[4]
+        prisonTerm = row[6]
+        probationTerm = row[7]
+        paroleTerm = row[8]
+        crimeDescription = row[9]
+        if inmate_id == 'DCNumber':
+			attributes = [offenseDate, county, prisonTerm, probationTerm, paroleTerm, crimeDescription]
+        else:
+            currentTime = datetime.datetime(int(offenseDate[6:10]), int(offenseDate[0:2]), int(offenseDate[3:5]))
+            offense = {attributes[0]: currentTime, attributes[1]: county, attributes[2]: prisonTerm, \
+                        attributes[3]: probationTerm, attributes[4]: paroleTerm, attributes[5]: crimeDescription}
+            if 'CURRENT_OFFENSES' not in inmatesMap[inmate_id]:
+				inmatesMap[inmate_id]['CURRENT_OFFENSES'] = [offense]
+            else:
+				inmatesMap[inmate_id]['CURRENT_OFFENSES'].append(offense)
 
 def addPreviousOffenses(previousOffensesReader, inmatesMap):
-	for row in previousOffensesReader:
-		if row[0] == 'DCNumber':
-			attributes = [row[2], row[4], row[6], row[7], row[8], row[9]]
-		else:
-			if 'PREVIOUS_OFFENSES' not in inmatesMap[row[0]]:
-				currentTime = datetime.datetime(int(row[2][6:10]), int(row[2][0:2]), int(row[2][3:5]))
-				inmatesMap[row[0]]['PREVIOUS_OFFENSES'] = [{attributes[0]: currentTime, attributes[1]: row[4], attributes[2]: row[6], attributes[3]: row[7], attributes[4]: row[8], attributes[5]: row[9]}]
-			else:
-				currentTime = datetime.datetime(int(row[2][6:10]), int(row[2][0:2]), int(row[2][3:5]))
-				inmatesMap[row[0]]['PREVIOUS_OFFENSES'].append({attributes[0]: currentTime, attributes[1]: row[4], attributes[2]: row[6], attributes[3]: row[7], attributes[4]: row[8], attributes[5]: row[9]})
+    for row in previousOffensesReader:
+        inmate_id = row[0]
+        offenseDate = row[2]
+        county = row[4]
+        prisonTerm = row[6]
+        probationTerm = row[7]
+        paroleTerm = row[8]
+        crimeDescription = row[9]
+        if inmate_id == 'DCNumber':
+			attributes = [offenseDate, county, prisonTerm, probationTerm, paroleTerm, crimeDescription]
+        else:
+            currentTime = datetime.datetime(int(offenseDate[6:10]), int(offenseDate[0:2]), int(offenseDate[3:5]))
+            offense = {attributes[0]: currentTime, attributes[1]: county, attributes[2]: prisonTerm, \
+                        attributes[3]: probationTerm, attributes[4]: paroleTerm, attributes[5]: crimeDescription}
+            if 'PREVIOUS_OFFENSES' not in inmatesMap[inmate_id]:
+				inmatesMap[inmate_id]['PREVIOUS_OFFENSES'] = [offense]
+            else:
+				inmatesMap[inmate_id]['PREVIOUS_OFFENSES'].append(offense)
 
 def addScars(scarsMarkReader, inmatesMap):
-	for row in scarsMarkReader:
-		if row[0] != 'DCNumber':
-			if 'TATTOOS' not in inmatesMap[row[0]]:
-				inmatesMap[row[0]]['TATTOOS'] = 1
-			else:
-				inmatesMap[row[0]]['TATTOOS'] += 1
+    for row in scarsMarkReader:
+        inmate_id = row[0]
+        if inmate_id != 'DCNumber':
+            if 'TATTOOS' not in inmatesMap[inmate_id]:
+				inmatesMap[inmate_id]['TATTOOS'] = 1
+            else:
+				inmatesMap[inmate_id]['TATTOOS'] += 1
 
 def createInmates(rootReader, inmatesMap):
-	attributes = []
-	for row in rootReader:
-		if row[0] == 'DCNumber':
-			for attribute in row:
+    attributes = []
+    for row in rootReader:
+        inmate_id = row[0]
+        if inmate_id == 'DCNumber': # Get row headers
+            for attribute in row:
 				attributes.append(attribute)
-		else:
-			inmateAttributeMap = {}
-			for i in range(1, len(row)):
-				if attributes[i] == 'ReceiptDate' or attributes[i] == 'BirthDate' or (attributes[i] == 'PrisonReleaseDate' and row[i] != ''):
+        else:
+            inmateAttributeMap = {}
+            for i in range(1, len(row)):
+                if attributes[i] == 'ReceiptDate' or attributes[i] == 'BirthDate' or (attributes[i] == 'PrisonReleaseDate' and row[i] != ''):
 					inmateAttributeMap[attributes[i]] = datetime.datetime(int(row[i][6:10]), int(row[i][0:2]), int(row[i][3:5]))
-				elif attributes[i] == 'PrisonReleaseDate':
+                elif attributes[i] == 'PrisonReleaseDate':
 					inmateAttributeMap[attributes[i]] = datetime.datetime(2100, 01, 01)
-				else:
+                else:
 					inmateAttributeMap[attributes[i]] = row[i]
-			inmatesMap[row[0]] = inmateAttributeMap
+            inmatesMap[inmate_id] = inmateAttributeMap # Map inmate DCNumber to their attributes
 
 
 def mapCreator():
 	inmatesMap = {}
-	with open('INMATE_ACTIVE_ROOT.csv', 'rb') as csvfile:
+	with open('CSV/INMATE_ACTIVE_ROOT.csv', 'rb') as csvfile:
 		rootReader = csv.reader(csvfile)
 		createInmates(rootReader, inmatesMap)
-	with open('INMATE_ACTIVE_SCARSMARKS.csv', 'rb') as csvfile:
+	with open('CSV/INMATE_ACTIVE_SCARSMARKS.csv', 'rb') as csvfile:
 		scarsMarkReader = csv.reader(csvfile)
 		addScars(scarsMarkReader, inmatesMap)
-	with open('INMATE_ACTIVE_OFFENSES_prpr.csv', 'rb') as csvfile:
+	with open('CSV/INMATE_ACTIVE_OFFENSES_prpr.csv', 'rb') as csvfile:
 		previousOffensesReader = csv.reader(csvfile)
 		addPreviousOffenses(previousOffensesReader, inmatesMap)
-	with open('INMATE_ACTIVE_OFFENSES_CPS.csv', 'rb') as csvfile:
+	with open('CSV/INMATE_ACTIVE_OFFENSES_CPS.csv', 'rb') as csvfile:
 		currentOffensesReader = csv.reader(csvfile)
 		addCurrentOffenses(currentOffensesReader, inmatesMap)
 	return inmatesMap
 
 def createFeatureVector():
-	featureVector = ['Weight', 'Height', 'TATTOOS', 'ReceiptDate', 'BirthDate']
+	featureVector = ['Weight', 'Height', 'TATTOOS', 'ReceiptDate', \
+                    'BirthDate', 'len_PREVIOUS_OFFENSES', 'len_CURRENT_OFFENSES']
 	with open('facilities.txt', 'r') as f:
 		for row in f:
 			featureVector.append('FAC_' + row.rstrip('\n'))
@@ -90,8 +109,6 @@ def createFeatureVector():
 		for row in f:
 			featureVector.append('PREV_' + row.rstrip('\n'))
 			featureVector.append('CURRENT_' + row.rstrip('\n'))
-	featureVector.append('len_PREVIOUS_OFFENSES')
-	featureVector.append('len_CURRENT_OFFENSES')
 	return featureVector
 
 def increment(d1, scale, d2):
@@ -221,10 +238,14 @@ def learnPredictor(trainExamples, testExamples, featureExtractor, featureVector)
         #print "Test error is " + str(1 - testCorrectness)
     return weights
 
-inmatesMap = mapCreator()
-featureVector = createFeatureVector()
-allInmates = []
-for inmate in inmatesMap:
-	allInmates.append(inmatesMap[inmate])
-weights = learnPredictor(allInmates, None, extractFeatures, featureVector)
-print weights
+def main():
+    inmatesMap = mapCreator()
+    featureVector = createFeatureVector()
+    allInmates = []
+    for inmate in inmatesMap:
+        allInmates.append(inmatesMap[inmate])
+    weights = learnPredictor(allInmates, None, extractFeatures, featureVector)
+    print weights
+
+if __name__ == "__main__":
+    main()
