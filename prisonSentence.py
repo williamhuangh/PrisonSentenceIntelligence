@@ -212,8 +212,8 @@ def learnPredictor(trainExamples, testExamples, featureExtractor, featureVector)
             	#print predictionScore, correctPrediction, features[word]
             #print gradientLoss
             increment(weights, -eta, gradientLoss)
-            if 'SEX_F' in features:
-            	print weights
+            #if 'SEX_F' in features:
+            	#print weights
         #trainingCorrectness = evaluatePredictor(trainExamples, lambda x: sign(dotProduct(featureExtractor(x), weights)))
         #testCorrectness = evaluatePredictor(testExamples,  lambda x: sign(dotProduct(featureExtractor(x), weights)))
         #print "Iteration " + str(i)
