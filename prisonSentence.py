@@ -2,6 +2,9 @@ import csv
 import time
 import datetime
 import decimal
+import numpy
+import scipy
+from sklearn.linear_model import SGDRegressor
 
 def addCurrentOffenses(currentOffensesReader, inmatesMap):
     for row in currentOffensesReader:
@@ -13,15 +16,15 @@ def addCurrentOffenses(currentOffensesReader, inmatesMap):
         paroleTerm = row[8]
         crimeDescription = row[9]
         if inmate_id == 'DCNumber':
-			attributes = [offenseDate, county, prisonTerm, probationTerm, paroleTerm, crimeDescription]
+            attributes = [offenseDate, county, prisonTerm, probationTerm, paroleTerm, crimeDescription]
         else:
             currentTime = datetime.datetime(int(offenseDate[6:10]), int(offenseDate[0:2]), int(offenseDate[3:5]))
             offense = {attributes[0]: currentTime, attributes[1]: county, attributes[2]: prisonTerm, \
                         attributes[3]: probationTerm, attributes[4]: paroleTerm, attributes[5]: crimeDescription}
             if 'CURRENT_OFFENSES' not in inmatesMap[inmate_id]:
-				inmatesMap[inmate_id]['CURRENT_OFFENSES'] = [offense]
+                inmatesMap[inmate_id]['CURRENT_OFFENSES'] = [offense]
             else:
-				inmatesMap[inmate_id]['CURRENT_OFFENSES'].append(offense)
+                inmatesMap[inmate_id]['CURRENT_OFFENSES'].append(offense)
 
 def addPreviousOffenses(previousOffensesReader, inmatesMap):
     for row in previousOffensesReader:
@@ -33,24 +36,24 @@ def addPreviousOffenses(previousOffensesReader, inmatesMap):
         paroleTerm = row[8]
         crimeDescription = row[9]
         if inmate_id == 'DCNumber':
-			attributes = [offenseDate, county, prisonTerm, probationTerm, paroleTerm, crimeDescription]
+            attributes = [offenseDate, county, prisonTerm, probationTerm, paroleTerm, crimeDescription]
         else:
             currentTime = datetime.datetime(int(offenseDate[6:10]), int(offenseDate[0:2]), int(offenseDate[3:5]))
             offense = {attributes[0]: currentTime, attributes[1]: county, attributes[2]: prisonTerm, \
                         attributes[3]: probationTerm, attributes[4]: paroleTerm, attributes[5]: crimeDescription}
             if 'PREVIOUS_OFFENSES' not in inmatesMap[inmate_id]:
-				inmatesMap[inmate_id]['PREVIOUS_OFFENSES'] = [offense]
+                inmatesMap[inmate_id]['PREVIOUS_OFFENSES'] = [offense]
             else:
-				inmatesMap[inmate_id]['PREVIOUS_OFFENSES'].append(offense)
+                inmatesMap[inmate_id]['PREVIOUS_OFFENSES'].append(offense)
 
 def addScars(scarsMarkReader, inmatesMap):
     for row in scarsMarkReader:
         inmate_id = row[0]
         if inmate_id != 'DCNumber':
             if 'TATTOOS' not in inmatesMap[inmate_id]:
-				inmatesMap[inmate_id]['TATTOOS'] = 1
+                inmatesMap[inmate_id]['TATTOOS'] = 1
             else:
-				inmatesMap[inmate_id]['TATTOOS'] += 1
+                inmatesMap[inmate_id]['TATTOOS'] += 1
 
 def createInmates(rootReader, inmatesMap):
     attributes = []
@@ -58,31 +61,31 @@ def createInmates(rootReader, inmatesMap):
         inmate_id = row[0]
         if inmate_id == 'DCNumber': # Get row headers
             for attribute in row:
-				attributes.append(attribute)
+                attributes.append(attribute)
         else:
             inmateAttributeMap = {}
             for i in range(1, len(row)):
                 if attributes[i] == 'ReceiptDate' or attributes[i] == 'BirthDate' or (attributes[i] == 'PrisonReleaseDate' and row[i] != ''):
-					inmateAttributeMap[attributes[i]] = datetime.datetime(int(row[i][6:10]), int(row[i][0:2]), int(row[i][3:5]))
+                    inmateAttributeMap[attributes[i]] = datetime.datetime(int(row[i][6:10]), int(row[i][0:2]), int(row[i][3:5]))
                 elif attributes[i] == 'PrisonReleaseDate':
-					inmateAttributeMap[attributes[i]] = datetime.datetime(2100, 01, 01)
+                    inmateAttributeMap[attributes[i]] = datetime.datetime(2100, 01, 01)
                 else:
-					inmateAttributeMap[attributes[i]] = row[i]
+                    inmateAttributeMap[attributes[i]] = row[i]
             inmatesMap[inmate_id] = inmateAttributeMap # Map inmate DCNumber to their attributes
 
 
 def mapCreator():
 	inmatesMap = {}
-	with open('CSV/INMATE_ACTIVE_ROOT.csv', 'rb') as csvfile:
+	with open('INMATE_ACTIVE_ROOT.csv', 'rb') as csvfile:
 		rootReader = csv.reader(csvfile)
 		createInmates(rootReader, inmatesMap)
-	with open('CSV/INMATE_ACTIVE_SCARSMARKS.csv', 'rb') as csvfile:
+	with open('INMATE_ACTIVE_SCARSMARKS.csv', 'rb') as csvfile:
 		scarsMarkReader = csv.reader(csvfile)
 		addScars(scarsMarkReader, inmatesMap)
-	with open('CSV/INMATE_ACTIVE_OFFENSES_prpr.csv', 'rb') as csvfile:
+	with open('INMATE_ACTIVE_OFFENSES_prpr.csv', 'rb') as csvfile:
 		previousOffensesReader = csv.reader(csvfile)
 		addPreviousOffenses(previousOffensesReader, inmatesMap)
-	with open('CSV/INMATE_ACTIVE_OFFENSES_CPS.csv', 'rb') as csvfile:
+	with open('INMATE_ACTIVE_OFFENSES_CPS.csv', 'rb') as csvfile:
 		currentOffensesReader = csv.reader(csvfile)
 		addCurrentOffenses(currentOffensesReader, inmatesMap)
 	return inmatesMap
@@ -119,7 +122,7 @@ def increment(d1, scale, d2):
     @param dict d2: a feature vector.
     """
     for f, v in d2.items():
-    	#print d1.get(f, 0), v, scale
+        #print d1.get(f, 0), v, scale
         d1[f] = d1.get(f, 0) + v * scale
 
 def dotProduct(d1, d2):
@@ -131,71 +134,80 @@ def dotProduct(d1, d2):
     if len(d1) < len(d2):
         return dotProduct(d2, d1)
     else:
-    	#print d2.items()
-    	#print sum(d1.get(f, 0) * v for f, v in d2.items())
+        #print d2.items()
+        #print sum(d1.get(f, 0) * v for f, v in d2.items())
         return sum(d1.get(f, 0) * v for f, v in d2.items())
 
 def extractFeatures(person, featureVector):
-	currentOffenses = []
-	if 'CURRENT_OFFENSES' in person:
-		currentOffenses = person['CURRENT_OFFENSES']
-	pastOffenses = []
-	if "PREVIOUS_OFFENSES" in person:
-		pastOffenses = person['PREVIOUS_OFFENSES']
-	featureMap = {}
-	for feature in featureVector:
-		if feature[0:4] == "FAC_":
-			if person["FACILITY_description"] == feature[4:]:
-				featureMap[feature] = 1
-		elif feature[0:4] == "EYE_":
-			if person["EyeColor"] == feature[4:]:
-				featureMap[feature] = 1
-		elif feature[0:5] == "HAIR_":
-			if person["HairColor"] == feature[5:]:
-				featureMap[feature] = 1
-		elif feature[0:5] == "RACE_":
-			if person["Race"] == feature[5:]:
-				featureMap[feature] = 1
-		elif feature[0:4] == "SEX_":
-			if person["Sex"] == feature[4:]:
-				featureMap[feature] = 1
-		elif feature[0:5] == "PREV_":
-			for offense in pastOffenses:
-				if offense['adjudicationcharge_descr'] == feature[5:]:
-					if feature in featureMap:
-						featureMap[feature] += 1
-					else:
-					 	featureMap[feature] = 1
-		elif feature[0:8] == "CURRENT_":
-			for offense in currentOffenses:
-				if offense['adjudicationcharge_descr'] == feature[8:]:
-					if feature in featureMap:
-						featureMap[feature] += 1
-					else:
-					 	featureMap[feature] = 1
-		elif feature == "len_PREVIOUS_OFFENSES":
-			featureMap["len_PREVIOUS_OFFENSES"] = len(pastOffenses)
-		elif feature == "len_CURRENT_OFFENSES":
-			featureMap["len_CURRENT_OFFENSES"] = len(currentOffenses)
-		elif feature == "BirthDate":
-			featureMap["BirthDate"] = (person["BirthDate"] - datetime.datetime(1900, 01, 01)).days
-		elif feature == "ReceiptDate":
-			featureMap["ReceiptDate"] = (person["ReceiptDate"] - datetime.datetime(1950, 01, 01)).days
-		elif feature == "Weight":
-			if person[feature] != '':
-				featureMap[feature] = float(person[feature])
-			else:
-				featureMap[feature] = 150
-		elif feature == "Height":
-			if person[feature] != '':
-				featureMap[feature] = float(person[feature])
-			else:
-				featureMap[feature] = 510
-		else:
-			featureMap[feature] = 0
-			if feature in person:
-				featureMap[feature] = float(person[feature])
-	return featureMap
+    currentOffenses = []
+    if 'CURRENT_OFFENSES' in person:
+        currentOffenses = person['CURRENT_OFFENSES']
+    pastOffenses = []
+    if "PREVIOUS_OFFENSES" in person:
+        pastOffenses = person['PREVIOUS_OFFENSES']
+    inmateVector = []
+    for feature in featureVector:
+        if feature[0:4] == "FAC_":
+            if person["FACILITY_description"] == feature[4:]:
+                inmateVector.append(1)
+            else:
+                inmateVector.append(0)
+        elif feature[0:4] == "EYE_":
+            if person["EyeColor"] == feature[4:]:
+                inmateVector.append(1)
+            else:
+                inmateVector.append(0)
+        elif feature[0:5] == "HAIR_":
+            if person["HairColor"] == feature[5:]:
+                inmateVector.append(1)
+            else:
+                inmateVector.append(0)
+        elif feature[0:5] == "RACE_":
+            if person["Race"] == feature[5:]:
+                inmateVector.append(1)
+            else:
+                inmateVector.append(0)
+        elif feature[0:4] == "SEX_":
+            if person["Sex"] == feature[4:]:
+                inmateVector.append(1)
+            else:
+                inmateVector.append(0)
+        elif feature[0:5] == "PREV_":
+            total = 0
+            for offense in pastOffenses:
+                if offense['adjudicationcharge_descr'] == feature[5:]:
+                    total += 1
+            inmateVector.append(total)
+        elif feature[0:8] == "CURRENT_":
+            total = 0
+            for offense in currentOffenses:
+                if offense['adjudicationcharge_descr'] == feature[8:]:
+                    total += 1
+            inmateVector.append(total)
+        elif feature == "len_PREVIOUS_OFFENSES":
+            inmateVector.append(len(pastOffenses))
+        elif feature == "len_CURRENT_OFFENSES":
+            inmateVector.append(len(currentOffenses))
+        elif feature == "BirthDate":
+            inmateVector.append((person["BirthDate"] - datetime.datetime(1900, 01, 01)).days)
+        elif feature == "ReceiptDate":
+            inmateVector.append((person["ReceiptDate"] - datetime.datetime(1950, 01, 01)).days)
+        elif feature == "Weight":
+            if person[feature] != '':
+                inmateVector.append(float(person[feature]))
+            else:
+                inmateVector.append(150)
+        elif feature == "Height":
+            if person[feature] != '':
+                inmateVector.append(float(person[feature]))
+            else:
+                inmateVector.append(510)
+        elif feature == "TATTOOS":
+            if feature in person:
+                inmateVector.append(float(person[feature]))
+            else:
+                inmateVector.append(0)
+    return inmateVector
 
 def learnPredictor(trainExamples, testExamples, featureExtractor, featureVector):
     '''
@@ -222,15 +234,15 @@ def learnPredictor(trainExamples, testExamples, featureExtractor, featureVector)
             loss = predictionScore - correctPrediction
             gradientLoss = {}
             for word in features:
-            	if loss > 0:
-            		gradientLoss[word] = features[word]
-            	else:
-            		gradientLoss[word] = -features[word]
-            	#print predictionScore, correctPrediction, features[word]
+                if loss > 0:
+                    gradientLoss[word] = features[word]
+                else:
+                    gradientLoss[word] = -features[word]
+                #print predictionScore, correctPrediction, features[word]
             #print gradientLoss
             increment(weights, -eta, gradientLoss)
             #if 'SEX_F' in features:
-            	#print weights
+                #print weights
         #trainingCorrectness = evaluatePredictor(trainExamples, lambda x: sign(dotProduct(featureExtractor(x), weights)))
         #testCorrectness = evaluatePredictor(testExamples,  lambda x: sign(dotProduct(featureExtractor(x), weights)))
         #print "Iteration " + str(i)
@@ -241,11 +253,24 @@ def learnPredictor(trainExamples, testExamples, featureExtractor, featureVector)
 def main():
     inmatesMap = mapCreator()
     featureVector = createFeatureVector()
+    #releaseIndex = featureVector.index("PrisonReleaseDate")
+    #receiptIndex = featureVector.index("ReceiptDate")
     allInmates = []
+    allInmateYValues = []
     for inmate in inmatesMap:
-        allInmates.append(inmatesMap[inmate])
-    weights = learnPredictor(allInmates, None, extractFeatures, featureVector)
-    print weights
+        currentPerson = extractFeatures(inmatesMap[inmate], featureVector)
+        allInmates.append(currentPerson)
+        allInmateYValues.append((inmatesMap[inmate]["PrisonReleaseDate"] - inmatesMap[inmate]["ReceiptDate"]).days)
+    testSet = [allInmates[i] for i in range(0, 10000)]
+    testSetY = [allInmateYValues[i] for i in range(0, 10000)]
+    clf = SGDRegressor(fit_intercept=False)
+    clf.fit(allInmates, allInmateYValues)
+    print clf.predict(allInmates[20000])
+    print allInmateYValues[20000]
+    #for coef in clf.coef_:
+    #    print coef
+    #weights = learnPredictor(allInmates, None, extractFeatures, featureVector)
+    #print weights
 
 if __name__ == "__main__":
     main()
