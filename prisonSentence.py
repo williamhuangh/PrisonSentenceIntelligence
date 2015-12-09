@@ -91,8 +91,8 @@ def mapCreator():
 	return inmatesMap
 
 def createFeatureVector():
-	featureVector = ['Weight', 'Height', 'TATTOOS', 'ReceiptDate', \
-                    'BirthDate', 'len_PREVIOUS_OFFENSES', 'len_CURRENT_OFFENSES']
+	featureVector = ['TATTOOS', \
+                    'len_PREVIOUS_OFFENSES', 'len_CURRENT_OFFENSES']
 	with open('facilities.txt', 'r') as f:
 		for row in f:
 			featureVector.append('FAC_' + row.rstrip('\n'))
@@ -263,12 +263,14 @@ def main():
         allInmateYValues.append((inmatesMap[inmate]["PrisonReleaseDate"] - inmatesMap[inmate]["ReceiptDate"]).days)
     testSet = [allInmates[i] for i in range(0, 10000)]
     testSetY = [allInmateYValues[i] for i in range(0, 10000)]
-    clf = SGDRegressor(fit_intercept=False)
+    clf = SGDRegressor(loss='epsilon_insensitive', fit_intercept=False, learning_rate='constant', n_iter=1, penalty='none', epsilon=20)
     clf.fit(allInmates, allInmateYValues)
-    print clf.predict(allInmates[20000])
-    print allInmateYValues[20000]
-    #for coef in clf.coef_:
-    #    print coef
+    #print clf.predict(allInmates[1])
+    #print allInmateYValues[1]
+    i = 0
+    for coef in clf.coef_:
+        print featureVector[i], coef
+        i += 1
     #weights = learnPredictor(allInmates, None, extractFeatures, featureVector)
     #print weights
 
