@@ -4,7 +4,16 @@ import datetime
 import decimal
 import numpy
 import scipy
+import math
 from sklearn.linear_model import SGDRegressor
+
+def addIncarhist(incarhistReader, inmatesMap):
+    for row in incarhistReader:
+        inmate_id = row[0]
+        incarcerationDate = row[1]
+        releaseDate = row[2]
+        if inmate_id != 'DCNumber' and releaseDate == '':
+            inmatesMap[inmate_id]['IncarcerationDate'] = datetime.datetime(int(incarcerationDate[6:10]), int(incarcerationDate[0:2]), int(incarcerationDate[3:5]))
 
 def addCurrentOffenses(currentOffensesReader, inmatesMap):
     for row in currentOffensesReader:
@@ -75,33 +84,38 @@ def createInmates(rootReader, inmatesMap):
 
 
 def mapCreator():
-	inmatesMap = {}
-	with open('INMATE_ACTIVE_ROOT.csv', 'rb') as csvfile:
-		rootReader = csv.reader(csvfile)
-		createInmates(rootReader, inmatesMap)
-	with open('INMATE_ACTIVE_SCARSMARKS.csv', 'rb') as csvfile:
-		scarsMarkReader = csv.reader(csvfile)
-		addScars(scarsMarkReader, inmatesMap)
-	with open('INMATE_ACTIVE_OFFENSES_prpr.csv', 'rb') as csvfile:
-		previousOffensesReader = csv.reader(csvfile)
-		addPreviousOffenses(previousOffensesReader, inmatesMap)
-	with open('INMATE_ACTIVE_OFFENSES_CPS.csv', 'rb') as csvfile:
-		currentOffensesReader = csv.reader(csvfile)
-		addCurrentOffenses(currentOffensesReader, inmatesMap)
-	return inmatesMap
+    inmatesMap = {}
+    with open('INMATE_ACTIVE_ROOT.csv', 'rb') as csvfile:
+        rootReader = csv.reader(csvfile)
+        createInmates(rootReader, inmatesMap)
+    with open('INMATE_ACTIVE_SCARSMARKS.csv', 'rb') as csvfile:
+        scarsMarkReader = csv.reader(csvfile)
+        addScars(scarsMarkReader, inmatesMap)
+    with open('INMATE_ACTIVE_OFFENSES_prpr.csv', 'rb') as csvfile:
+        previousOffensesReader = csv.reader(csvfile)
+        addPreviousOffenses(previousOffensesReader, inmatesMap)
+    with open('INMATE_ACTIVE_OFFENSES_CPS.csv', 'rb') as csvfile:
+        currentOffensesReader = csv.reader(csvfile)
+        addCurrentOffenses(currentOffensesReader, inmatesMap)
+    with open('INMATE_ACTIVE_INCARHIST.csv', 'rb') as csvfile:
+        incarhistReader = csv.reader(csvfile)
+        addIncarhist(incarhistReader, inmatesMap)
+    return inmatesMap
 
 def createFeatureVector():
-	featureVector = ['TATTOOS', \
+	featureVector = ['TATTOOS', 'Height0', 'Height450', 'Height470', 'Height490', 'Height510', 'Height530', 'Height550', 'Height570', 'Height590', 'Height610', 'Height610+', \
+                    'Weight0', 'Weight100', 'Weight120', 'Weight140', 'Weight160', 'Weight180', 'Weight200', 'Weight220', 'Weight240', 'Weight240+', \
+                    'Age6000', 'Age8400', 'Age10800', 'Age13200', 'Age15600', 'Age18000', 'Age20400', 'Age22800', 'Age25200', 'Age27600', 'Age30000', 'Age30000+', \
                     'len_PREVIOUS_OFFENSES', 'len_CURRENT_OFFENSES']
-	with open('facilities.txt', 'r') as f:
-		for row in f:
-			featureVector.append('FAC_' + row.rstrip('\n'))
-	with open('eyecolor.txt', 'r') as f:
-		for row in f:
-			featureVector.append('EYE_' + row.rstrip('\n'))
-	with open('haircolor.txt', 'r') as f:
-		for row in f:
-			featureVector.append('HAIR_' + row.rstrip('\n'))
+	# with open('facilities.txt', 'r') as f:
+	# 	for row in f:
+	# 		featureVector.append('FAC_' + row.rstrip('\n'))
+	# with open('eyecolor.txt', 'r') as f:
+	# 	for row in f:
+	# 		featureVector.append('EYE_' + row.rstrip('\n'))
+	# with open('haircolor.txt', 'r') as f:
+	# 	for row in f:
+	# 		featureVector.append('HAIR_' + row.rstrip('\n'))
 	with open('races.txt', 'r') as f:
 		for row in f:
 			featureVector.append('RACE_' + row.rstrip('\n'))
@@ -147,12 +161,7 @@ def extractFeatures(person, featureVector):
         pastOffenses = person['PREVIOUS_OFFENSES']
     inmateVector = []
     for feature in featureVector:
-        if feature[0:4] == "FAC_":
-            if person["FACILITY_description"] == feature[4:]:
-                inmateVector.append(1)
-            else:
-                inmateVector.append(0)
-        elif feature[0:4] == "EYE_":
+        if feature[0:4] == "EYE_":
             if person["EyeColor"] == feature[4:]:
                 inmateVector.append(1)
             else:
@@ -192,87 +201,117 @@ def extractFeatures(person, featureVector):
             inmateVector.append((person["BirthDate"] - datetime.datetime(1900, 01, 01)).days)
         elif feature == "ReceiptDate":
             inmateVector.append((person["ReceiptDate"] - datetime.datetime(1950, 01, 01)).days)
-        elif feature == "Weight":
-            if person[feature] != '':
-                inmateVector.append(float(person[feature]))
+        elif feature[0:6] == "Height":
+            if feature[6:] == '0' and person[feature[0:6]] == '':
+                inmateVector.append(1)
+            elif feature[6:] == '450' and person[feature[0:6]] != '' and float(person[feature[0:6]]) <= 450 and float(person[feature[0:6]]) > 0:
+                inmateVector.append(1)
+            elif feature[6:] == '470' and person[feature[0:6]] != '' and float(person[feature[0:6]]) <= 470 and float(person[feature[0:6]]) > 450:
+                inmateVector.append(1)
+            elif feature[6:] == '490' and person[feature[0:6]] != '' and float(person[feature[0:6]]) <= 490 and float(person[feature[0:6]]) > 470:
+                inmateVector.append(1)
+            elif feature[6:] == '510' and person[feature[0:6]] != '' and float(person[feature[0:6]]) <= 510 and float(person[feature[0:6]]) > 490:
+                inmateVector.append(1)
+            elif feature[6:] == '530' and person[feature[0:6]] != '' and float(person[feature[0:6]]) <= 530 and float(person[feature[0:6]]) > 510:
+                inmateVector.append(1)
+            elif feature[6:] == '550' and person[feature[0:6]] != '' and float(person[feature[0:6]]) <= 550 and float(person[feature[0:6]]) > 530:
+                inmateVector.append(1)
+            elif feature[6:] == '570' and person[feature[0:6]] != '' and float(person[feature[0:6]]) <= 570 and float(person[feature[0:6]]) > 550:
+                inmateVector.append(1)
+            elif feature[6:] == '590' and person[feature[0:6]] != '' and float(person[feature[0:6]]) <= 590 and float(person[feature[0:6]]) > 570:
+                inmateVector.append(1)
+            elif feature[6:] == '610' and person[feature[0:6]] != '' and float(person[feature[0:6]]) <= 610 and float(person[feature[0:6]]) > 590:
+                inmateVector.append(1)
+            elif feature[6:] == '610+' and person[feature[0:6]] != '' and float(person[feature[0:6]]) > 610:
+                inmateVector.append(1)
             else:
-                inmateVector.append(150)
-        elif feature == "Height":
-            if person[feature] != '':
-                inmateVector.append(float(person[feature]))
+                inmateVector.append(0)
+        elif feature[0:6] == "Weight":
+            if feature[6:] == '0' and person[feature[0:6]] == '':
+                inmateVector.append(1)
+            elif feature[6:] == '100' and person[feature[0:6]] != '' and float(person[feature[0:6]]) <= 100 and float(person[feature[0:6]]) > 0:
+                inmateVector.append(1)
+            elif feature[6:] == '120' and person[feature[0:6]] != '' and float(person[feature[0:6]]) <= 120 and float(person[feature[0:6]]) > 100:
+                inmateVector.append(1)
+            elif feature[6:] == '140' and person[feature[0:6]] != '' and float(person[feature[0:6]]) <= 140 and float(person[feature[0:6]]) > 120:
+                inmateVector.append(1)
+            elif feature[6:] == '160' and person[feature[0:6]] != '' and float(person[feature[0:6]]) <= 160 and float(person[feature[0:6]]) > 140:
+                inmateVector.append(1)
+            elif feature[6:] == '180' and person[feature[0:6]] != '' and float(person[feature[0:6]]) <= 180 and float(person[feature[0:6]]) > 160:
+                inmateVector.append(1)
+            elif feature[6:] == '200' and person[feature[0:6]] != '' and float(person[feature[0:6]]) <= 200 and float(person[feature[0:6]]) > 180:
+                inmateVector.append(1)
+            elif feature[6:] == '220' and person[feature[0:6]] != '' and float(person[feature[0:6]]) <= 220 and float(person[feature[0:6]]) > 200:
+                inmateVector.append(1)
+            elif feature[6:] == '240' and person[feature[0:6]] != '' and float(person[feature[0:6]]) <= 240 and float(person[feature[0:6]]) > 220:
+                inmateVector.append(1)
+            elif feature[6:] == '240+' and person[feature[0:6]] != '' and float(person[feature[0:6]]) > 240:
+                inmateVector.append(1)
             else:
-                inmateVector.append(510)
+                inmateVector.append(0)
+        elif feature[0:3] == "Age":
+            bday = person["BirthDate"]
+            incarcerated = person["ReceiptDate"]
+            age = (incarcerated - bday).days
+            if feature[3:] == '6000' and age <= 6000:
+                inmateVector.append(1)
+            elif feature[3:] == '8400' and age <= 8400 and age > 0:
+                inmateVector.append(1)
+            elif feature[3:] == '10800' and age <= 10800 and age > 8400:
+                inmateVector.append(1)
+            elif feature[3:] == '13200' and age <= 13200 and age > 10800:
+                inmateVector.append(1)
+            elif feature[3:] == '15600' and age <= 15600 and age > 13200:
+                inmateVector.append(1)
+            elif feature[3:] == '18000' and age <= 18000 and age > 15600:
+                inmateVector.append(1)
+            elif feature[3:] == '20400' and age <= 20400 and age > 18000:
+                inmateVector.append(1)
+            elif feature[3:] == '22800' and age <= 22800 and age > 20400:
+                inmateVector.append(1)
+            elif feature[3:] == '25200' and age <= 25200 and age > 22800:
+                inmateVector.append(1)
+            elif feature[3:] == '27600' and age <= 27600 and age > 25200:
+                inmateVector.append(1)
+            elif feature[3:] == '30000' and age <= 30000 and age > 27600:
+                inmateVector.append(1)
+            elif feature[3:] == '30000+' and age > 30000:
+                inmateVector.append(1)
+            else:
+                inmateVector.append(0)
         elif feature == "TATTOOS":
             if feature in person:
                 inmateVector.append(float(person[feature]))
             else:
                 inmateVector.append(0)
+        else:
+            print 'ERROR', feature
     return inmateVector
-
-def learnPredictor(trainExamples, testExamples, featureExtractor, featureVector):
-    '''
-    Given |trainExamples| and |testExamples| (each one is a list of (x,y)
-    pairs), a |featureExtractor| to apply to x, and the number of iterations to
-    train |numIters|, return the weight vector (sparse feature vector) learned.
-
-    You should implement stochastic gradient descent.
-
-    Note: only use the trainExamples for training!
-    You should call evaluatePredictor() on both trainExamples and testExamples
-    to see how you're doing as you learn after each iteration.
-    numIters refers to a variable you need to declare. It is not passed in.
-    '''
-    weights = {}  # feature => weight
-    numIters = 20
-    eta = 0.01
-    for i in range(numIters):
-        for person in trainExamples:
-            features = featureExtractor(person, featureVector)
-            correctPrediction = (person['PrisonReleaseDate'] - person['ReceiptDate']).days
-            predictionScore = dotProduct(weights, features)
-            margin = predictionScore * correctPrediction
-            loss = predictionScore - correctPrediction
-            gradientLoss = {}
-            for word in features:
-                if loss > 0:
-                    gradientLoss[word] = features[word]
-                else:
-                    gradientLoss[word] = -features[word]
-                #print predictionScore, correctPrediction, features[word]
-            #print gradientLoss
-            increment(weights, -eta, gradientLoss)
-            #if 'SEX_F' in features:
-                #print weights
-        #trainingCorrectness = evaluatePredictor(trainExamples, lambda x: sign(dotProduct(featureExtractor(x), weights)))
-        #testCorrectness = evaluatePredictor(testExamples,  lambda x: sign(dotProduct(featureExtractor(x), weights)))
-        #print "Iteration " + str(i)
-        #print "Training error is " + str(1 - trainingCorrectness)
-        #print "Test error is " + str(1 - testCorrectness)
-    return weights
 
 def main():
     inmatesMap = mapCreator()
     featureVector = createFeatureVector()
-    #releaseIndex = featureVector.index("PrisonReleaseDate")
-    #receiptIndex = featureVector.index("ReceiptDate")
+    for thing in featureVector:
+        print thing
     allInmates = []
     allInmateYValues = []
     for inmate in inmatesMap:
+        if 'IncarcerationDate' not in inmatesMap[inmate] or (inmatesMap[inmate]["PrisonReleaseDate"] - inmatesMap[inmate]["IncarcerationDate"]).days <= 0:
+            continue
         currentPerson = extractFeatures(inmatesMap[inmate], featureVector)
         allInmates.append(currentPerson)
-        allInmateYValues.append((inmatesMap[inmate]["PrisonReleaseDate"] - inmatesMap[inmate]["ReceiptDate"]).days)
+        allInmateYValues.append(math.log((inmatesMap[inmate]["PrisonReleaseDate"] - inmatesMap[inmate]["IncarcerationDate"]).days))
     testSet = [allInmates[i] for i in range(0, 10000)]
     testSetY = [allInmateYValues[i] for i in range(0, 10000)]
-    clf = SGDRegressor(loss='epsilon_insensitive', fit_intercept=False, learning_rate='constant', n_iter=1, penalty='none', epsilon=20)
+    clf = SGDRegressor(loss='epsilon_insensitive', fit_intercept=True, learning_rate='constant', n_iter=1, penalty='none', epsilon=0)
     clf.fit(allInmates, allInmateYValues)
-    #print clf.predict(allInmates[1])
-    #print allInmateYValues[1]
+    # for i in range(len(allInmates)):
+    #     print (allInmateYValues[i] - abs(clf.predict(allInmates[i]) - allInmateYValues[i])) / float(allInmateYValues[i])
+
     i = 0
     for coef in clf.coef_:
         print featureVector[i], coef
         i += 1
-    #weights = learnPredictor(allInmates, None, extractFeatures, featureVector)
-    #print weights
 
 if __name__ == "__main__":
     main()
