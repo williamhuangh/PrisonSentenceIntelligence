@@ -4,37 +4,9 @@ import collections
 import numpy as np
 import util
 from sklearn.cluster import KMeans
+from sklearn.cluster import AgglomerativeClustering
 import matplotlib.pyplot as plt
-import matplotlib.cm as cm
-
-def createCrimeSentenceDict(crimeArray):
-    crimeSentenceDict = {}
-    for crime, sentenceLength in crimeArray:
-        if crime in crimeSentenceDict:
-            crimeSentenceDict[crime].append(sentenceLength)
-        else:
-            crimeSentenceDict[crime] = [sentenceLength]
-    return crimeSentenceDict
-
-
-def createCrimeSentenceMedians(crimeDict):
-    crimeSentenceMediansDict = {}
-    for crime in crimeDict:
-        median = np.median(crimeDict[crime])
-        mean = np.mean(crimeDict[crime])
-
-        b = collections.Counter(crimeDict[crime])
-        mode, numAppearances = b.most_common(1)[0]
-        crimeSentenceMediansDict[crime] = [median, mean, mode]
-    return crimeSentenceMediansDict
-
-
-def createCrimeSentenceMeans(crimeDict):
-    crimeSentenceMeansDict = {}
-    for crime in crimeDict:
-        mean = np.mean(crimeDict[crime])
-        crimeSentenceMeansDict[crime] = mean
-    return crimeSentenceMeansDict
+from mpl_toolkits.mplot3d import Axes3D
 
 
 def addCurrentOffenses(currentOffensesReader, sentenceClusterArray):
@@ -49,6 +21,7 @@ def addCurrentOffenses(currentOffensesReader, sentenceClusterArray):
             sentenceClusterArray.append((crimeDescription, \
                 int(util.convertSentenceToDays(prisonTerm))))
 
+
 def addPreviousOffenses(previousOffensesReader, sentenceClusterArray):
     attributes = []
     for row in previousOffensesReader:
@@ -59,49 +32,97 @@ def addPreviousOffenses(previousOffensesReader, sentenceClusterArray):
             attributes = [crimeDescription, prisonTerm]
         else:
             sentenceClusterArray.append((crimeDescription, \
-                math.log(int(util.convertSentenceToDays(prisonTerm)))))
+                int(util.convertSentenceToDays(prisonTerm))))
 
 
 def tuplesCreator():
     sentenceClusterArrayPrev = []
     sentenceClusterArrayCurrent = []
-    # with open('INMATE_ACTIVE_OFFENSES_prpr.csv', 'rb') as csvfile:
-    #     previousOffensesReader = csv.reader(csvfile)
-    #     addPreviousOffenses(previousOffensesReader, sentenceClusterArrayPrev)
+    with open('INMATE_ACTIVE_OFFENSES_prpr.csv', 'rb') as csvfile:
+        previousOffensesReader = csv.reader(csvfile)
+        addPreviousOffenses(previousOffensesReader, sentenceClusterArrayPrev)
     with open('INMATE_ACTIVE_OFFENSES_CPS.csv', 'rb') as csvfile:
         currentOffensesReader = csv.reader(csvfile)
         addCurrentOffenses(currentOffensesReader, sentenceClusterArrayCurrent)
-    # return (sentenceClusterArrayPrev, sentenceClusterArrayCurrent)
-    return sentenceClusterArrayCurrent
+    return (sentenceClusterArrayPrev, sentenceClusterArrayCurrent)
+
+
+def createCrimeSentenceDict(crimeArray):
+    crimeSentenceDict = {}
+    for crime, sentenceLength in crimeArray:
+        if crime in crimeSentenceDict:
+            crimeSentenceDict[crime].append(sentenceLength)
+        else:
+            crimeSentenceDict[crime] = [sentenceLength]
+    return crimeSentenceDict
+
+
+def createSentenceVectorDict(crimeDict):
+    sentenceVectorDict = {}
+    for crime in crimeDict:
+        median = np.median(crimeDict[crime])
+        mean = np.mean(crimeDict[crime])
+
+        b = collections.Counter(crimeDict[crime])
+        mode, numAppearances = b.most_common(1)[0]
+        sentenceVectorDict[crime] = [mode, median, mean]
+    return sentenceVectorDict
+
+
+def createCrimeToClusterMap(clusterToCrimeMap):
+    crimeToClusterMap = {}
+    # Maps crime to array of all instances of clusters it falls under
+    for cluster in clusterToCrimeMap:
+        for crime in clusterToCrimeMap[cluster]:
+            if crime in crimeToClusterMap:
+                crimeToClusterMap[crime].append(cluster)
+            else:
+                crimeToClusterMap[crime] = [cluster]
+
+    # Maps the crime to a single cluster based on the mode of the clusters it falls under
+    for crime in crimeToClusterMap:
+        clusters = crimeToClusterMap[crime]
+        b = collections.Counter(clusters)
+        mode, numAppearances = b.most_common(1)[0]
+        crimeToClusterMap[crime] = mode
+
+    return crimeToClusterMap
+
+
+def getCrimeToClusterMap(crimes, clusters = 20):
+    X = []
+    for crime, sentenceLength in crimes:
+        X.append([sentenceLength])
+    estimator = KMeans(n_clusters=clusters)
+    estimator.fit(X)
+
+    clusterToCrimeMap = {}
+    for crimeIndex, label in enumerate(estimator.labels_):
+        crime, sentenceLength = crimes[crimeIndex]
+        if label in clusterToCrimeMap:
+            clusterToCrimeMap[label].append(crime)
+        else:
+            clusterToCrimeMap[label] = [crime]
+
+    crimeToClusterMap = createCrimeToClusterMap(clusterToCrimeMap)
+
+    # print estimator.cluster_centers_
+    return crimeToClusterMap
 
 
 def main():
-    currentOffenses = tuplesCreator()
-    currentCrimeSentenceDict = createCrimeSentenceDict(currentOffenses)
-    currentSentenceMediansDict = createCrimeSentenceMedians(currentCrimeSentenceDict)
-    currentSentenceMeansDict = createCrimeSentenceMeans(currentCrimeSentenceDict)
-    # print currentSentenceMeansDict
+    pastCrimes, currentCrimes = tuplesCreator()
+    pastCrimesClusterMap = getCrimeToClusterMap(pastCrimes, 20)
+    currentCrimesClusterMap = getCrimeToClusterMap(currentCrimes, 21)
 
-    X = []
-    for crime in currentSentenceMediansDict:
-        X.append(currentSentenceMediansDict[crime])
-    X = np.array(X)
-    estimator = KMeans(n_clusters=20, init='random')
-    estimator.fit(X)
-    estimators
-    # clusterMap = {}
-    # for crimeIndex, label in enumerate(estimator.labels_):
-    #     crime, sentenceLength = currentOffenses[crimeIndex]
-    #     if label in clusterMap:
-    #         clusterMap[label].append(crime)
-    #     else:
-    #         clusterMap[label] = [crime]
+    w = csv.writer(open("pastCrimeClusters.csv", "w"))
+    for key, val in pastCrimesClusterMap.items():
+        w.writerow([key, val])
 
-    colors = cm.spectral(cluster_labels.astype(float) / n_clusters)
-    ax2.scatter(X[:, 0], X[:, 1], marker='.', s=30, lw=0, alpha=0.7,
-                c=colors)
+    w = csv.writer(open("currentCrimeClusters.csv", "w"))
+    for key, val in currentCrimesClusterMap.items():
+        w.writerow([key, val])
 
-    print estimator.cluster_centers_
 
 if __name__ == "__main__":
     main()
