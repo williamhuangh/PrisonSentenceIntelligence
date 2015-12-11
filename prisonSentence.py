@@ -2,10 +2,13 @@ import csv
 import time
 import datetime
 import decimal
-import numpy
+import numpy as np
 import scipy
 import math
 from sklearn.linear_model import SGDRegressor
+from sklearn.naive_bayes import BernoulliNB
+from sklearn.metrics import mean_absolute_error, mean_squared_error
+from sklearn.utils import check_array
 
 def addIncarhist(incarhistReader, inmatesMap):
     for row in incarhistReader:
@@ -76,8 +79,8 @@ def createInmates(rootReader, inmatesMap):
             for i in range(1, len(row)):
                 if attributes[i] == 'ReceiptDate' or attributes[i] == 'BirthDate' or (attributes[i] == 'PrisonReleaseDate' and row[i] != ''):
                     inmateAttributeMap[attributes[i]] = datetime.datetime(int(row[i][6:10]), int(row[i][0:2]), int(row[i][3:5]))
-                elif attributes[i] == 'PrisonReleaseDate':
-                    inmateAttributeMap[attributes[i]] = datetime.datetime(2100, 01, 01)
+                # elif attributes[i] == 'PrisonReleaseDate':
+                #     inmateAttributeMap[attributes[i]] = datetime.datetime(2100, 01, 01)
                 else:
                     inmateAttributeMap[attributes[i]] = row[i]
             inmatesMap[inmate_id] = inmateAttributeMap # Map inmate DCNumber to their attributes
@@ -105,8 +108,7 @@ def mapCreator():
 def createFeatureVector():
 	featureVector = ['TATTOOS', 'Height0', 'Height450', 'Height470', 'Height490', 'Height510', 'Height530', 'Height550', 'Height570', 'Height590', 'Height610', 'Height610+', \
                     'Weight0', 'Weight100', 'Weight120', 'Weight140', 'Weight160', 'Weight180', 'Weight200', 'Weight220', 'Weight240', 'Weight240+', \
-                    'Age6000', 'Age8400', 'Age10800', 'Age13200', 'Age15600', 'Age18000', 'Age20400', 'Age22800', 'Age25200', 'Age27600', 'Age30000', 'Age30000+', \
-                    'len_PREVIOUS_OFFENSES', 'len_CURRENT_OFFENSES']
+                    'Age6000', 'Age8400', 'Age10800', 'Age13200', 'Age15600', 'Age18000', 'Age20400', 'Age22800', 'Age25200', 'Age27600', 'Age30000', 'Age30000+']
 	# with open('facilities.txt', 'r') as f:
 	# 	for row in f:
 	# 		featureVector.append('FAC_' + row.rstrip('\n'))
@@ -288,30 +290,74 @@ def extractFeatures(person, featureVector):
             print 'ERROR', feature
     return inmateVector
 
+def nbRound(testSetY):
+    result = []
+    for y in testSetY:
+        result.append(round(y))
+    return result
+
+def nbTestTransform(testSet):
+    result = []
+    for i in range(len(testSet)):
+        person = []
+        for j in range(len(testSet[i])):
+            if testSet[i][j] >= 1:
+                person.append(1)
+            else:
+                person.append(0)
+        result.append(person)
+    return result
+
+def mean_absolute_percentage_error(y_true, y_pred, percentErrors):
+    for i in range(len(y_true)):
+        print "true", y_true[i], "experimental", y_pred[i]
+        percentErrors.append(abs(y_true[i] - y_pred[i]) / y_true[i])
+        print percentErrors[i]
+    #percentErrors = np.abs((y_true - y_pred) / y_true)
+    return np.mean(np.array(percentErrors))
+
 def main():
     inmatesMap = mapCreator()
     featureVector = createFeatureVector()
-    for thing in featureVector:
-        print thing
+
     allInmates = []
     allInmateYValues = []
     for inmate in inmatesMap:
-        if 'IncarcerationDate' not in inmatesMap[inmate] or (inmatesMap[inmate]["PrisonReleaseDate"] - inmatesMap[inmate]["IncarcerationDate"]).days <= 0:
+        if 'IncarcerationDate' not in inmatesMap[inmate]:
+            continue
+        if inmatesMap[inmate]['PrisonReleaseDate'] == '':
+            inmatesMap[inmate]['PrisonReleaseDate'] = inmatesMap[inmate]['IncarcerationDate'] + datetime.timedelta(days=36525)
+        if (inmatesMap[inmate]["PrisonReleaseDate"] - inmatesMap[inmate]["IncarcerationDate"]).days <= 0:
             continue
         currentPerson = extractFeatures(inmatesMap[inmate], featureVector)
         allInmates.append(currentPerson)
         allInmateYValues.append(math.log((inmatesMap[inmate]["PrisonReleaseDate"] - inmatesMap[inmate]["IncarcerationDate"]).days))
     testSet = [allInmates[i] for i in range(0, 10000)]
     testSetY = [allInmateYValues[i] for i in range(0, 10000)]
-    clf = SGDRegressor(loss='epsilon_insensitive', fit_intercept=True, learning_rate='constant', n_iter=1, penalty='none', epsilon=0)
-    clf.fit(allInmates, allInmateYValues)
-    # for i in range(len(allInmates)):
-    #     print (allInmateYValues[i] - abs(clf.predict(allInmates[i]) - allInmateYValues[i])) / float(allInmateYValues[i])
-
-    i = 0
-    for coef in clf.coef_:
-        print featureVector[i], coef
-        i += 1
+    #clf = SGDRegressor(loss='epsilon_insensitive', fit_intercept=True, learning_rate='constant', n_iter=1, penalty='none', epsilon=0)
+    #clf.fit(testSet, testSetY)
+    # total = 0.0
+    # for i in range(10001, 20001):
+    #     currentError = (allInmateYValues[i] - abs(nb.predict(allInmates[i]) - allInmateYValues[i])) / float(allInmateYValues[i])
+    #     total += currentError
+    #     print currentError
+    # print total / 10000.0
+    nbAllInmates = nbTestTransform(allInmates)
+    nbAllInmateYValues = nbRound(allInmateYValues)
+    nbTestSet = [nbAllInmates[i] for i in range(0, 10000)]
+    nbTestSetY = [nbAllInmateYValues[i] for i in range(0, 10000)]
+    nb = BernoulliNB()
+    nb.fit(np.array(nbTestSet), np.array(nbTestSetY))
+    nbTrueSentenceLength = []
+    nbTestSentenceLength = []
+    for i in range(10001, 20001):
+        nbTrueSentenceLength.append(math.e**(nbAllInmateYValues[i]))
+        nbTestSentenceLength.append(math.e**(nb.predict(nbAllInmates[i])))
+    # print nbTrueSentenceLength
+    # print nbTestSentenceLength
+    percentErrors = []
+    print mean_absolute_percentage_error(nbTrueSentenceLength, nbTestSentenceLength, percentErrors)
+    print np.std(np.array(percentErrors))
 
 if __name__ == "__main__":
     main()
