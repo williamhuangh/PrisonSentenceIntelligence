@@ -5,10 +5,12 @@ import decimal
 import numpy as np
 import scipy
 import math
+import util
 from sklearn.linear_model import SGDRegressor
 from sklearn.naive_bayes import BernoulliNB
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 from sklearn.utils import check_array
+from sklearn import svm
 
 def addIncarhist(incarhistReader, inmatesMap):
     for row in incarhistReader:
@@ -31,8 +33,12 @@ def addCurrentOffenses(currentOffensesReader, inmatesMap):
             attributes = [offenseDate, county, prisonTerm, probationTerm, paroleTerm, crimeDescription]
         else:
             currentTime = datetime.datetime(int(offenseDate[6:10]), int(offenseDate[0:2]), int(offenseDate[3:5]))
-            offense = {attributes[0]: currentTime, attributes[1]: county, attributes[2]: prisonTerm, \
-                        attributes[3]: probationTerm, attributes[4]: paroleTerm, attributes[5]: crimeDescription}
+            offense = {attributes[0]: currentTime, 
+                        attributes[1]: county, 
+                        attributes[2]: util.convertSentenceToDays(prisonTerm),
+                        attributes[3]: probationTerm, 
+                        attributes[4]: paroleTerm, 
+                        attributes[5]: crimeDescription}
             if 'CURRENT_OFFENSES' not in inmatesMap[inmate_id]:
                 inmatesMap[inmate_id]['CURRENT_OFFENSES'] = [offense]
             else:
@@ -51,8 +57,12 @@ def addPreviousOffenses(previousOffensesReader, inmatesMap):
             attributes = [offenseDate, county, prisonTerm, probationTerm, paroleTerm, crimeDescription]
         else:
             currentTime = datetime.datetime(int(offenseDate[6:10]), int(offenseDate[0:2]), int(offenseDate[3:5]))
-            offense = {attributes[0]: currentTime, attributes[1]: county, attributes[2]: prisonTerm, \
-                        attributes[3]: probationTerm, attributes[4]: paroleTerm, attributes[5]: crimeDescription}
+            offense = {attributes[0]: currentTime, 
+                        attributes[1]: county, 
+                        attributes[2]: util.convertSentenceToDays(prisonTerm),
+                        attributes[3]: probationTerm, 
+                        attributes[4]: paroleTerm, 
+                        attributes[5]: crimeDescription}
             if 'PREVIOUS_OFFENSES' not in inmatesMap[inmate_id]:
                 inmatesMap[inmate_id]['PREVIOUS_OFFENSES'] = [offense]
             else:
@@ -106,55 +116,48 @@ def mapCreator():
     return inmatesMap
 
 def createFeatureVector():
-	featureVector = ['TATTOOS', 'Height0', 'Height450', 'Height470', 'Height490', 'Height510', 'Height530', 'Height550', 'Height570', 'Height590', 'Height610', 'Height610+', \
+    featureVector = ['TATTOOS', 'Height0', 'Height450', 'Height470', 'Height490', 'Height510', 'Height530', 'Height550', 'Height570', 'Height590', 'Height610', 'Height610+', \
                     'Weight0', 'Weight100', 'Weight120', 'Weight140', 'Weight160', 'Weight180', 'Weight200', 'Weight220', 'Weight240', 'Weight240+', \
-                    'Age6000', 'Age8400', 'Age10800', 'Age13200', 'Age15600', 'Age18000', 'Age20400', 'Age22800', 'Age25200', 'Age27600', 'Age30000', 'Age30000+']
-	# with open('facilities.txt', 'r') as f:
-	# 	for row in f:
-	# 		featureVector.append('FAC_' + row.rstrip('\n'))
-	# with open('eyecolor.txt', 'r') as f:
-	# 	for row in f:
-	# 		featureVector.append('EYE_' + row.rstrip('\n'))
-	# with open('haircolor.txt', 'r') as f:
-	# 	for row in f:
-	# 		featureVector.append('HAIR_' + row.rstrip('\n'))
-	with open('races.txt', 'r') as f:
-		for row in f:
-			featureVector.append('RACE_' + row.rstrip('\n'))
-	with open('sexes.txt', 'r') as f:
-		for row in f:
-			featureVector.append('SEX_' + row.rstrip('\n'))
+                    'Age6000', 'Age8400', 'Age10800', 'Age13200', 'Age15600', 'Age18000', 'Age20400', 'Age22800', 'Age25200', 'Age27600', 'Age30000', 'Age30000+' \
+                    ]
+    with open('eyecolor.txt', 'r') as f:
+        for row in f:
+            featureVector.append('EYE_' + row.rstrip('\n'))
+    with open('haircolor.txt', 'r') as f:
+        for row in f:
+            featureVector.append('HAIR_' + row.rstrip('\n'))
+    with open('races.txt', 'r') as f:
+        for row in f:
+            featureVector.append('RACE_' + row.rstrip('\n'))
+    with open('sexes.txt', 'r') as f:
+        for row in f:
+            featureVector.append('SEX_' + row.rstrip('\n'))
+
 	with open('offenses.txt', 'r') as f:
 		for row in f:
 			featureVector.append('PREV_' + row.rstrip('\n'))
 			featureVector.append('CURRENT_' + row.rstrip('\n'))
-	return featureVector
 
-def increment(d1, scale, d2):
-    """
-    Implements d1 += scale * d2 for sparse vectors.
-    @param dict d1: the feature vector which is mutated.
-    @param float scale
-    @param dict d2: a feature vector.
-    """
-    for f, v in d2.items():
-        #print d1.get(f, 0), v, scale
-        d1[f] = d1.get(f, 0) + v * scale
+    # numCrimeClusters = 20
+    # for i in range(numCrimeClusters):
+    #     name = "CRIME_CLUSTER_" + str(i)
+    #     featureVector.append('PREV_' + name)
+    #     featureVector.append('CURRENT_' + name)
 
-def dotProduct(d1, d2):
-    """
-    @param dict d1: a feature vector represented by a mapping from a feature (string) to a weight (float).
-    @param dict d2: same as d1
-    @return float: the dot product between d1 and d2
-    """
-    if len(d1) < len(d2):
-        return dotProduct(d2, d1)
-    else:
-        #print d2.items()
-        #print sum(d1.get(f, 0) * v for f, v in d2.items())
-        return sum(d1.get(f, 0) * v for f, v in d2.items())
+    return featureVector
+
+
+def getCrimeToClusterMap(filename):
+    crimeToClusterMap = {}
+    for key, val in csv.reader(open(filename)):
+        crimeToClusterMap[key] = val
+    return crimeToClusterMap
+
 
 def extractFeatures(person, featureVector):
+    currentCrimeToClusterMap = getCrimeToClusterMap("currentCrimeClusters.csv")
+    prevCrimeToClusterMap = getCrimeToClusterMap("pastCrimeClusters.csv")
+
     currentOffenses = []
     if 'CURRENT_OFFENSES' in person:
         currentOffenses = person['CURRENT_OFFENSES']
@@ -195,59 +198,55 @@ def extractFeatures(person, featureVector):
                 if offense['adjudicationcharge_descr'] == feature[8:]:
                     total += 1
             inmateVector.append(total)
-        elif feature == "len_PREVIOUS_OFFENSES":
-            inmateVector.append(len(pastOffenses))
-        elif feature == "len_CURRENT_OFFENSES":
-            inmateVector.append(len(currentOffenses))
-        elif feature == "BirthDate":
-            inmateVector.append((person["BirthDate"] - datetime.datetime(1900, 01, 01)).days)
-        elif feature == "ReceiptDate":
-            inmateVector.append((person["ReceiptDate"] - datetime.datetime(1950, 01, 01)).days)
         elif feature[0:6] == "Height":
+            if person[feature[0:6]]:
+                height = float(person[feature[0:6]])
             if feature[6:] == '0' and person[feature[0:6]] == '':
                 inmateVector.append(1)
-            elif feature[6:] == '450' and person[feature[0:6]] != '' and float(person[feature[0:6]]) <= 450 and float(person[feature[0:6]]) > 0:
+            elif feature[6:] == '450' and person[feature[0:6]] != '' and height <= 450 and height > 0:
                 inmateVector.append(1)
-            elif feature[6:] == '470' and person[feature[0:6]] != '' and float(person[feature[0:6]]) <= 470 and float(person[feature[0:6]]) > 450:
+            elif feature[6:] == '470' and person[feature[0:6]] != '' and height <= 470 and height > 450:
                 inmateVector.append(1)
-            elif feature[6:] == '490' and person[feature[0:6]] != '' and float(person[feature[0:6]]) <= 490 and float(person[feature[0:6]]) > 470:
+            elif feature[6:] == '490' and person[feature[0:6]] != '' and height <= 490 and height > 470:
                 inmateVector.append(1)
-            elif feature[6:] == '510' and person[feature[0:6]] != '' and float(person[feature[0:6]]) <= 510 and float(person[feature[0:6]]) > 490:
+            elif feature[6:] == '510' and person[feature[0:6]] != '' and height <= 510 and height > 490:
                 inmateVector.append(1)
-            elif feature[6:] == '530' and person[feature[0:6]] != '' and float(person[feature[0:6]]) <= 530 and float(person[feature[0:6]]) > 510:
+            elif feature[6:] == '530' and person[feature[0:6]] != '' and height <= 530 and height > 510:
                 inmateVector.append(1)
-            elif feature[6:] == '550' and person[feature[0:6]] != '' and float(person[feature[0:6]]) <= 550 and float(person[feature[0:6]]) > 530:
+            elif feature[6:] == '550' and person[feature[0:6]] != '' and height <= 550 and height > 530:
                 inmateVector.append(1)
-            elif feature[6:] == '570' and person[feature[0:6]] != '' and float(person[feature[0:6]]) <= 570 and float(person[feature[0:6]]) > 550:
+            elif feature[6:] == '570' and person[feature[0:6]] != '' and height <= 570 and height > 550:
                 inmateVector.append(1)
-            elif feature[6:] == '590' and person[feature[0:6]] != '' and float(person[feature[0:6]]) <= 590 and float(person[feature[0:6]]) > 570:
+            elif feature[6:] == '590' and person[feature[0:6]] != '' and height <= 590 and height > 570:
                 inmateVector.append(1)
-            elif feature[6:] == '610' and person[feature[0:6]] != '' and float(person[feature[0:6]]) <= 610 and float(person[feature[0:6]]) > 590:
+            elif feature[6:] == '610' and person[feature[0:6]] != '' and height <= 610 and height > 590:
                 inmateVector.append(1)
-            elif feature[6:] == '610+' and person[feature[0:6]] != '' and float(person[feature[0:6]]) > 610:
+            elif feature[6:] == '610+' and person[feature[0:6]] != '' and height > 610:
                 inmateVector.append(1)
             else:
                 inmateVector.append(0)
         elif feature[0:6] == "Weight":
+            if person[feature[0:6]]:
+                weight = float(person[feature[0:6]])
             if feature[6:] == '0' and person[feature[0:6]] == '':
                 inmateVector.append(1)
-            elif feature[6:] == '100' and person[feature[0:6]] != '' and float(person[feature[0:6]]) <= 100 and float(person[feature[0:6]]) > 0:
+            elif feature[6:] == '100' and person[feature[0:6]] != '' and weight <= 100 and weight > 0:
                 inmateVector.append(1)
-            elif feature[6:] == '120' and person[feature[0:6]] != '' and float(person[feature[0:6]]) <= 120 and float(person[feature[0:6]]) > 100:
+            elif feature[6:] == '120' and person[feature[0:6]] != '' and weight <= 120 and weight > 100:
                 inmateVector.append(1)
-            elif feature[6:] == '140' and person[feature[0:6]] != '' and float(person[feature[0:6]]) <= 140 and float(person[feature[0:6]]) > 120:
+            elif feature[6:] == '140' and person[feature[0:6]] != '' and weight <= 140 and weight > 120:
                 inmateVector.append(1)
-            elif feature[6:] == '160' and person[feature[0:6]] != '' and float(person[feature[0:6]]) <= 160 and float(person[feature[0:6]]) > 140:
+            elif feature[6:] == '160' and person[feature[0:6]] != '' and weight <= 160 and weight > 140:
                 inmateVector.append(1)
-            elif feature[6:] == '180' and person[feature[0:6]] != '' and float(person[feature[0:6]]) <= 180 and float(person[feature[0:6]]) > 160:
+            elif feature[6:] == '180' and person[feature[0:6]] != '' and weight <= 180 and weight > 160:
                 inmateVector.append(1)
-            elif feature[6:] == '200' and person[feature[0:6]] != '' and float(person[feature[0:6]]) <= 200 and float(person[feature[0:6]]) > 180:
+            elif feature[6:] == '200' and person[feature[0:6]] != '' and weight <= 200 and weight > 180:
                 inmateVector.append(1)
-            elif feature[6:] == '220' and person[feature[0:6]] != '' and float(person[feature[0:6]]) <= 220 and float(person[feature[0:6]]) > 200:
+            elif feature[6:] == '220' and person[feature[0:6]] != '' and weight <= 220 and weight > 200:
                 inmateVector.append(1)
-            elif feature[6:] == '240' and person[feature[0:6]] != '' and float(person[feature[0:6]]) <= 240 and float(person[feature[0:6]]) > 220:
+            elif feature[6:] == '240' and person[feature[0:6]] != '' and weight <= 240 and weight > 220:
                 inmateVector.append(1)
-            elif feature[6:] == '240+' and person[feature[0:6]] != '' and float(person[feature[0:6]]) > 240:
+            elif feature[6:] == '240+' and person[feature[0:6]] != '' and weight > 240:
                 inmateVector.append(1)
             else:
                 inmateVector.append(0)
@@ -290,11 +289,13 @@ def extractFeatures(person, featureVector):
             print 'ERROR', feature
     return inmateVector
 
+
 def nbRound(testSetY):
     result = []
     for y in testSetY:
-        result.append(round(y))
+        result.append((round(2 * y) / 2) / 10.0)
     return result
+
 
 def nbTestTransform(testSet):
     result = []
@@ -308,18 +309,31 @@ def nbTestTransform(testSet):
         result.append(person)
     return result
 
-def mean_absolute_percentage_error(y_true, y_pred, percentErrors):
-    for i in range(len(y_true)):
-        print "true", y_true[i], "experimental", y_pred[i]
-        percentErrors.append(abs(y_true[i] - y_pred[i]) / y_true[i])
-        print percentErrors[i]
-    #percentErrors = np.abs((y_true - y_pred) / y_true)
-    return np.mean(np.array(percentErrors))
+
+def baselineTest(sampleSet, trueSet):
+    currentSentenceModesMap = {}
+    for key, val in csv.reader(open("currentCrimeSentenceModes.csv")):
+        currentSentenceModesMap[key] = val
+    
+    predictedSet = []
+    for crime in sampleSet:
+        predictedSentenceLength = int(currentSentenceModesMap[crime])
+        predictedSet.append(predictedSentenceLength)
+
+    percentErrors = []
+    print "Baseline Test"
+    print "Mean absolute test error:", util.mean_absolute_percentage_error(trueSet, predictedSet, percentErrors)
+    print "Standard deviation:", np.std(np.array(percentErrors))
+
+
+
 
 def main():
     inmatesMap = mapCreator()
     featureVector = createFeatureVector()
 
+    allInmateCrimes = []
+    allInmateCrimesYValues = []
     allInmates = []
     allInmateYValues = []
     for inmate in inmatesMap:
@@ -329,19 +343,55 @@ def main():
             inmatesMap[inmate]['PrisonReleaseDate'] = inmatesMap[inmate]['IncarcerationDate'] + datetime.timedelta(days=36525)
         if (inmatesMap[inmate]["PrisonReleaseDate"] - inmatesMap[inmate]["IncarcerationDate"]).days <= 0:
             continue
+
         currentPerson = extractFeatures(inmatesMap[inmate], featureVector)
+
+        sentenceLength = (inmatesMap[inmate]["PrisonReleaseDate"] - inmatesMap[inmate]["IncarcerationDate"]).days
+        if 'CURRENT_OFFENSES' in inmatesMap[inmate]:
+            for offense in inmatesMap[inmate]['CURRENT_OFFENSES']:
+                crimeDescription = "CURRENT_" + offense["adjudicationcharge_descr"]
+                allInmateCrimes.append(crimeDescription)
+                allInmateCrimesYValues.append(sentenceLength)
+
         allInmates.append(currentPerson)
-        allInmateYValues.append(math.log((inmatesMap[inmate]["PrisonReleaseDate"] - inmatesMap[inmate]["IncarcerationDate"]).days))
-    testSet = [allInmates[i] for i in range(0, 10000)]
-    testSetY = [allInmateYValues[i] for i in range(0, 10000)]
-    #clf = SGDRegressor(loss='epsilon_insensitive', fit_intercept=True, learning_rate='constant', n_iter=1, penalty='none', epsilon=0)
-    #clf.fit(testSet, testSetY)
-    # total = 0.0
-    # for i in range(10001, 20001):
-    #     currentError = (allInmateYValues[i] - abs(nb.predict(allInmates[i]) - allInmateYValues[i])) / float(allInmateYValues[i])
-    #     total += currentError
-    #     print currentError
-    # print total / 10000.0
+        # allInmateYValues.append(inmatesMap[inmate]["prisonterm"])
+        allInmateYValues.append(sentenceLength)
+
+    X = allInmates[:10000]
+    y = allInmateYValues[:10000]
+
+    # print testSet
+    # print testSetY
+
+    sgd = SGDRegressor(loss='epsilon_insensitive', fit_intercept=True, learning_rate='constant', n_iter=4, penalty='none', epsilon=0)
+    sgd.fit(X, y)
+    sgdPredictedSetY = []
+    sgdTrueSetY = []
+    for i in range(10001, 20001):
+        sgdTrueSetY.append(allInmateYValues[i]);
+        sgdPredictedSetY.append(sgd.predict(allInmates[i]))
+    percentErrors = []
+    print "SGD Mean absolute test error:", util.mean_absolute_percentage_error(sgdTrueSetY, sgdPredictedSetY, percentErrors)
+    print "SGD Standard deviation:", np.std(np.array(percentErrors))
+
+
+    svr = svm.SVR()
+    svr.fit(X, y)
+    svrPredictedSetY = []
+    svrTrueSetY = []
+    for i in range(10001, 20001):
+        print "true value:", allInmateYValues[i]
+        print "predicted value:", svr.predict(allInmates[i])
+        print "Difference in true and predicted values:", allInmateYValues[i] - svr.predict(allInmates[i])
+        svrTrueSetY.append(allInmateYValues[i]);
+        svrPredictedSetY.append(svr.predict(allInmates[i]))
+    percentErrors = []
+    print "SVR Mean absolute test error:", util.mean_absolute_percentage_error(svrTrueSetY, svrPredictedSetY, percentErrors)
+    print "SVR Standard deviation:", np.std(np.array(percentErrors))
+
+
+    # baselineTest(allInmateCrimes[:10000], allInmateCrimesYValues[:10000])
+
     nbAllInmates = nbTestTransform(allInmates)
     nbAllInmateYValues = nbRound(allInmateYValues)
     nbTestSet = [nbAllInmates[i] for i in range(0, 10000)]
@@ -351,13 +401,13 @@ def main():
     nbTrueSentenceLength = []
     nbTestSentenceLength = []
     for i in range(10001, 20001):
-        nbTrueSentenceLength.append(math.e**(nbAllInmateYValues[i]))
-        nbTestSentenceLength.append(math.e**(nb.predict(nbAllInmates[i])))
+        nbTrueSentenceLength.append(nbAllInmateYValues[i] * 10.0)
+        nbTestSentenceLength.append(nb.predict(nbAllInmates[i] * 10.0))
     # print nbTrueSentenceLength
     # print nbTestSentenceLength
     percentErrors = []
-    print mean_absolute_percentage_error(nbTrueSentenceLength, nbTestSentenceLength, percentErrors)
-    print np.std(np.array(percentErrors))
+    print "Naive Bayes Mean absolute test error:", util.mean_absolute_percentage_error(nbTrueSentenceLength, nbTestSentenceLength, percentErrors)
+    print "Naive Bayes standard deviation:", np.std(np.array(percentErrors))
 
 if __name__ == "__main__":
     main()

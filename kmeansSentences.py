@@ -110,18 +110,21 @@ def getCrimeToClusterMap(crimes, clusters = 20):
     return crimeToClusterMap
 
 
+
 def main():
     pastCrimes, currentCrimes = tuplesCreator()
-    pastCrimesClusterMap = getCrimeToClusterMap(pastCrimes, 20)
-    currentCrimesClusterMap = getCrimeToClusterMap(currentCrimes, 21)
+    pastCrimesClusterMap = getCrimeToClusterMap(pastCrimes)
+    currentCrimesClusterMap = getCrimeToClusterMap(currentCrimes)
 
-    w = csv.writer(open("pastCrimeClusters.csv", "w"))
+    w = csv.writer(open("prevCrimeClusters.csv", "w"))
     for key, val in pastCrimesClusterMap.items():
         w.writerow([key, val])
 
     w = csv.writer(open("currentCrimeClusters.csv", "w"))
     for key, val in currentCrimesClusterMap.items():
         w.writerow([key, val])
+
+
 
 
 if __name__ == "__main__":

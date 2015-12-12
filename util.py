@@ -1,5 +1,7 @@
 import sys
-
+import csv
+import collections
+import numpy as np
 
 def increment(d1, scale, d2):
     """
@@ -26,6 +28,16 @@ def dotProduct(d1, d2):
         #print sum(d1.get(f, 0) * v for f, v in d2.items())
         return sum(d1.get(f, 0) * v for f, v in d2.items())
 
+
+def mean_absolute_percentage_error(y_true, y_pred, percentErrors):
+    for i in range(len(y_true)):
+        # print "true", y_true[i], "experimental", y_pred[i]
+        percentErrors.append(abs(y_true[i] - y_pred[i]) / y_true[i])
+        # print percentErrors[i]
+    #percentErrors = np.abs((y_true - y_pred) / y_true)
+    return np.mean(np.array(percentErrors))
+
+
 SENTENCE_LENGTH_DIGITS = 7
 def convertSentenceToDays(sentenceLength):
     ''' 
@@ -38,7 +50,7 @@ def convertSentenceToDays(sentenceLength):
         is a life sentence, which is represented by 9999998
     '''
     if sentenceLength == "9999998":
-        return sys.maxint
+        return 100 * 365
     else:
         numDigits = len(sentenceLength)
         sentenceLength = "0" * (SENTENCE_LENGTH_DIGITS - numDigits) + sentenceLength
@@ -63,4 +75,58 @@ def convertSentenceToDays(sentenceLength):
 
         return days + months * 30 + years * 365
 
+
+def createSentenceModesMap():
+    prevSentenceModesMap = {}
+    currentSentenceModesMap = {}
+
+    with open('INMATE_ACTIVE_OFFENSES_prpr.csv', 'rb') as csvfile:
+        previousOffensesReader = csv.reader(csvfile)
+        for row in previousOffensesReader:
+            inmate_id = row[0]
+            prisonTerm = row[6]
+            crimeDescription = 'PREV_' + row[9]
+            if inmate_id == 'DCNumber':
+                attributes = [crimeDescription, prisonTerm]
+            else:
+                if crimeDescription in prevSentenceModesMap:
+                    prevSentenceModesMap[crimeDescription].append(convertSentenceToDays(prisonTerm))
+                else:
+                    prevSentenceModesMap[crimeDescription] = [convertSentenceToDays(prisonTerm)]
+
+    with open('INMATE_ACTIVE_OFFENSES_CPS.csv', 'rb') as csvfile:
+        currentOffensesReader = csv.reader(csvfile)
+        for row in currentOffensesReader:
+            inmate_id = row[0]
+            prisonTerm = row[6]
+            crimeDescription = 'CURRENT_' + row[9]
+            if inmate_id == 'DCNumber':
+                attributes = [crimeDescription, prisonTerm]
+            else:
+                if crimeDescription in currentSentenceModesMap:
+                    currentSentenceModesMap[crimeDescription].append(convertSentenceToDays(prisonTerm))
+                else:
+                    currentSentenceModesMap[crimeDescription] = [convertSentenceToDays(prisonTerm)]
+
+    for crime in prevSentenceModesMap:
+        sentenceLengths = prevSentenceModesMap[crime]
+        b = collections.Counter(sentenceLengths)
+        mode, numAppearances = b.most_common(1)[0]
+        prevSentenceModesMap[crime] = mode
+
+    for crime in currentSentenceModesMap:
+        sentenceLengths = currentSentenceModesMap[crime]
+        b = collections.Counter(sentenceLengths)
+        mode, numAppearances = b.most_common(1)[0]
+        currentSentenceModesMap[crime] = mode
+
+    w = csv.writer(open("prevCrimeSentenceModes.csv", "w"))
+    for key, val in prevSentenceModesMap.items():
+        w.writerow([key, val])
+
+    w = csv.writer(open("currentCrimeSentenceModes.csv", "w"))
+    for key, val in currentSentenceModesMap.items():
+        w.writerow([key, val])
+
+createSentenceModesMap()
 
